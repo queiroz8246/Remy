@@ -29,8 +29,8 @@ def add_bg_from_local(image_file):
 add_bg_from_local("vinho4.jpeg")
 
 
-st.markdown("<h1 style='color: black;'>Conheça Remy</h1>", unsafe_allow_html=True)
-st.markdown("<h2 style='color: black;'>A inteligencia Artificial somelier de vinhos</h2>", unsafe_allow_html = True)
+st.markdown("<h1 style='color: white;'>Conheça Remy</h1>", unsafe_allow_html=True)
+st.markdown("<h2 style='color: white;'>A inteligencia Artificial somelier de vinhos</h2>", unsafe_allow_html = True)
 
 
 with st.form(key='meu_form', clear_on_submit=True):
@@ -84,12 +84,17 @@ with st.form(key='meu_form', clear_on_submit=True):
 
         # else:
         #     st.error("Porfavor insira algum valor!")
-        if enviar and 0 not in vetor:
+        if enviar:
             remy = Remy()
             retorno = remy.Analizar(vetor)
-            st.write(retorno[0])
-            st.write(retorno[1])
-            st.write(retorno[2])
-            st.write(retorno[3])
+            st.markdown(f"""
+            <div style='background-color: black; color: lightgreen; border: 3px white solid; border-radius: 20px; padding: 10px;'>
+             {retorno[0]}<br>
+            {retorno[1]}<br>
+            {retorno[2]}<br>
+            {retorno[3]}<br> 
+            </div>
+            """, unsafe_allow_html=True)
+            remy.Say()
 
         # st.write(enviar)
