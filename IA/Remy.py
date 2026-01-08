@@ -2,7 +2,6 @@
 from sklearn.model_selection import train_test_split # divide o dataset em treino e teste
 from sklearn.ensemble import RandomForestClassifier # cria varias árvores de decisão para uma previsão mais potente
 from sklearn.metrics import accuracy_score, classification_report # acurácia e relatorio do modelo
-from imblearn.over_sampling import ADASYN # favorece dados em menor quantidade no dataset
 import pandas as pd # manipulação do dataset
 import pyttsx3 # dá voz pro Remy
 import json # estetica do dicionário dos parâmetros do vinho na saída
@@ -17,12 +16,15 @@ class Remy:
         self.__remy = RandomForestClassifier(class_weight= "balanced", max_depth= 7, n_estimators=600, random_state=42)
         # lista com os parâmetros que vai aparecer na saída
         self.__keys = ["acidez fixa","acidez volátil","ácido cítrico","açúcar residual","cloretos","dióxido de enxofre livre","dióxido de enxofre total","densidade","pH","sulfatos","álcool"]
-
+        self.__tipo_vinho = ""
+        self.__qualidade = ""
+        self.__y_teste = ""
+        self.__y_previsao = ""
 
     # --Classifica o tipo do vinho entre branco e tinto a partir do parâmetro "dados"-------------
     def __Tipo(self, dados: list):
         # caminho do dataset que contem todos os vinhos
-        dataset = "IA/datasets/qualidade_vinho.csv"
+        dataset = "IA/datasets/qualidade_vinho.csv" # <- Venv/IA/datasets/qualidade_vinho.csv
 
         # ler o dataset e guarda em df_v
         df = pd.read_csv(dataset)
@@ -31,26 +33,24 @@ class Remy:
         # variaveis que vão ser usadas para o 1º treino do Remy
         x = [] # dados de estudo
         y = [] # resposta
-        parametros = df_v.drop(columns=["quality", "tipo"]) # retirando as colunas "quality" e "tipo" do dataset
+        parametros = df_v[['fixed acidity', 'citric acid', 'alcohol']] # entregando apenas as colunas 'fixed acidity', 'citric acid', 'alcohol' do dataset
         tipo = df_v["tipo"] # entregando apenas a coluna "tipo" do dataset
 
         # preenchendo as variaveis "x" e "y" com as variaveis "parametros" e "tipos" respectivamente
         for i in range(len(df_v["tipo"])):
-            x.append(parametros.loc[i].values)
+            x.append(parametros.loc[i])
             y.append(tipo.loc[i])
 
-        # faz o balanceamento dos dados do dataset
-        adasyn = ADASYN(random_state=42)
-        x_new, y_new = adasyn.fit_resample(x, y)
-
+    
         # faz o treino do Remy
-        x_treino, x_teste, y_treino, y_teste = train_test_split(x_new, y_new, test_size= 0.2, random_state=42)
+        x_treino, x_teste, y_treino, y_teste = train_test_split(x, y, test_size= 0.2, random_state=42)
 
         # aprendizado do remy a partir do treino
-        self.__remy.fit(x_new, y_new)
+        self.__remy.fit(x_treino, y_treino)
         
         # previsão do Remy a partir dos dados do vinho inseridos no parâmetro "dados"
-        classe = self.__remy.predict([dados])[0]
+        verificar = [[dados[0], dados[2], dados[10]]]
+        classe = self.__remy.predict(verificar)[0]
         return classe # retorno da previsão do Remy
     
 
@@ -100,31 +100,38 @@ class Remy:
 
     
     def Analizar(self, dados: list):
-        tipo_vinho = self.__Tipo(dados) # retorna o tipo do vinho
-        y_teste, y_previsao = self.__Qualidade(tipo_vinho) # faz o treinamento para a qualidade
+        self.__tipo_vinho = self.__Tipo(dados) # retorna o tipo do vinho
+        self.__y_teste, self.__y_previsao = self.__Qualidade(self.__tipo_vinho) # faz o treinamento para a qualidade
 
+        # junta a lista do parâmetro dados com o atributo "__keys" e converte para um dicionário
+        # parametros = dict(zip(self.__keys, dados))
+
+        # faz a previsão do vinho inserido pelo do parâmetro "dados"
+        self.__qualidade = self.__remy.predict([dados])[0]
         # junta a lista do parâmetro dados com o atributo "__keys" e converte para um dicionário
         parametros = dict(zip(self.__keys, dados))
 
         # faz a previsão do vinho inserido pelo do parâmetro "dados"
-        qualidade = self.__remy.predict([dados])[0]
+        self.__qualidade = self.__remy.predict([dados])[0]
 
+        
+        return f"Vinho {self.__tipo_vinho} Reconhecido.", f"Parametros analisados: {json.dumps(parametros, indent=4, ensure_ascii=False)}.", f"Qualidade prevista para o vinho: {self.__qualidade}", f"Acurácia do modelo Remy: {accuracy_score(self.__y_teste, self.__y_previsao) * 100:.1f}%"
+
+    
+    def Say(self):
         engine = pyttsx3.init() # cria um objeto de engine de voz
         voices = engine.getProperty('voices') # pega a lista de vozes disponíveis no sistema
         engine.setProperty('voice', voices[0].id) # define qual voz será usada
         
         # transforma todo o texto em voz
-        engine.say(f"Vinho {tipo_vinho} Reconhecido. Parametros analisados: {parametros}. Qualidade prevista para o vinho: {qualidade}. Acurácia do modelo Remy: {accuracy_score(y_teste, y_previsao) * 100:.1f}%")
+        engine.say(f"Vinho {self.__tipo_vinho} Reconhecido. Qualidade prevista para o vinho: {self.__qualidade} Acurácia do modelo Remy: {accuracy_score(self.__y_teste, self.__y_previsao) * 100:.1f}%")
         
         # espera terminar
         engine.runAndWait()
 
         # para
         engine.stop()
-        
-        return f"Vinho {tipo_vinho} Reconhecido.", f"Parametros analisados: {json.dumps(parametros, indent=4, ensure_ascii=False)}.", f"Qualidade prevista para o vinho: {qualidade}", f"Acurácia do modelo Remy: {accuracy_score(y_teste, y_previsao) * 100:.1f}%"
-    
-    
+
     # --passa um relatorio do modelo Remy------------------------------
     def Relatorio(self, dados: list):
         tipo_vinho = self.__Tipo(dados) # retorna o tipo do vinho
